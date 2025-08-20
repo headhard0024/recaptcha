@@ -1,23 +1,46 @@
-<html>
+<!DOCTYPE html>
+<html lang="fa">
 <head>
-  <title>reCAPTCHA</title>
+  <meta charset="UTF-8">
+  <title>تست reCAPTCHA v2</title>
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-  <script type="text/javascript">
-    function onSubmit(token) {
-      // وقتی reCAPTCHA با موفقیت تایید شد، توکن رو به Flutter بده
-      if (window.flutter_inappwebview) {
-        window.flutter_inappwebview.callHandler('recaptchaTokenHandler', token);
-      }
-    }
-  </script>
   <style>
-    body { font-family: Arial; }
-    .g-recaptcha { display: inline-block; }
+    body { font-family: sans-serif; direction: rtl; padding: 20px; }
+    #result { margin-top: 20px; white-space: pre-wrap; background: #eee; padding: 10px; }
   </style>
 </head>
 <body>
-  <form action="javascript:void(0);" onsubmit="return false;">
-    <div class="g-recaptcha" data-sitekey="6Lf5m1MrAAAAAGCPtMqKrKJDyvWZPn93XSSk_ylx" data-callback="onSubmit"></div>
+
+  <h2>تست دریافت توکن reCAPTCHA v2</h2>
+
+  <form id="recaptcha-form">
+    <div class="g-recaptcha" data-sitekey="6Lf5m1MrAAAAAGCPtMqKrKJDyvWZPn93XSSk_ylx"></div>
+    <br>
+    <button type="submit">ارسال</button>
   </form>
+
+  <div id="result"></div>
+
+  <script>
+    document.getElementById("recaptcha-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      const token = grecaptcha.getResponse();
+
+      if (!token) {
+        alert("لطفاً reCAPTCHA را کامل کنید.");
+        return;
+      }
+
+      // فقط برای نمایش تستی:
+      document.getElementById("result").textContent =
+        "توکن دریافتی از کاربر:\n" + token + 
+        "\n\nاین توکن باید به سرور فرستاده شود تا اعتبارسنجی شود.";
+
+      // پاک‌کردن توکن برای دفعات بعد:
+      grecaptcha.reset();
+    });
+  </script>
+
 </body>
 </html>
