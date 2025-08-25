@@ -1,46 +1,103 @@
 <!DOCTYPE html>
 <html lang="fa">
 <head>
-  <meta charset="UTF-8">
-  <title>تست reCAPTCHA v2</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>reCAPTCHA v2</title>
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <style>
-    body { font-family: sans-serif; direction: rtl; padding: 20px; }
-    #result { margin-top: 20px; white-space: pre-wrap; background: #eee; padding: 10px; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: sans-serif;
+      direction: rtl;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f9f9f9;
+    }
+    #recaptcha-container {
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
 
-  <h2>تست دریافت توکن reCAPTCHA v2</h2>
-
-  <form id="recaptcha-form">
-    <div class="g-recaptcha" data-sitekey="6Lf5m1MrAAAAAGCPtMqKrKJDyvWZPn93XSSk_ylx"></div>
-    <br>
-    <button type="submit">ارسال</button>
-  </form>
-
-  <div id="result"></div>
+  <div id="recaptcha-container"></div>
 
   <script>
-    document.getElementById("recaptcha-form").addEventListener("submit", function(e) {
-      e.preventDefault();
+    // تابع برای خواندن sitekey از query parameter
+    function getUrlParameter(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name) || urlParams.get('k'); // می‌تونی با ?sitekey=... یا ?k=... بفرستی
+    }
 
-      const token = grecaptcha.getResponse();
+    const siteKey = getUrlParameter('sitekey') || '6Lf5m1MrAAAAAGCPtMqKrKJDyvWZPn93XSSk_ylx'; // پیش‌فرض اختیاری
 
-      if (!token) {
-        alert("لطفاً reCAPTCHA را کامل کنید.");
-        return;
+    // متغیر برای نگه‌داری توکن
+    let captchaToken = null;
+
+    // تنظیم reCAPTCHA
+    function renderCaptcha() {
+      grecaptcha.render('recaptcha-container', {
+        'sitekey': siteKey,
+        'callback': onCaptchaSuccess
+      });
+    }
+
+    // وقتی reCAPTCHA با موفقیت تأیید شد
+    function onCaptchaSuccess(token) {
+      captchaToken = token;
+      // ارسال توکن به WebView (Flutter)
+      window.parent.postMessage({
+        action: 'recaptcha-success',
+        token: token
+      }, '*');
+    }
+
+    // اگر کاربر کپچا رو ریست کنه
+    function onCaptchaExpired() {
+      window.parent.postMessage({
+        action: 'recaptcha-expired'
+      }, '*');
+    }
+
+    // ارسال توکن به Flutter در صورت درخواست (مثلاً وقتی کنترلر چک می‌کنه)
+    function sendToken() {
+      if (captchaToken) {
+        window.parent.postMessage({
+          action: 'recaptcha-token',
+          token: captchaToken
+        }, '*');
+      } else {
+        window.parent.postMessage({
+          action: 'recaptcha-empty'
+        }, '*');
       }
+    }
 
-      // فقط برای نمایش تستی:
-      document.getElementById("result").textContent =
-        "توکن دریافتی از کاربر:\n" + token + 
-        "\n\nاین توکن باید به سرور فرستاده شود تا اعتبارسنجی شود.";
-
-      // پاک‌کردن توکن برای دفعات بعد:
-      grecaptcha.reset();
+    // پذیرش پیام از Flutter
+    window.addEventListener('message', function(event) {
+      // می‌تونی بر اساس event.origin امنیت رو افزایش بدی
+      if (event.data && event.data.action === 'get-token') {
+        sendToken();
+      } else if (event.data && event.data.action === 'reset') {
+        grecaptcha.reset();
+        captchaToken = null;
+      }
     });
-  </script>
 
+    // ارسال پیام آماده‌بودن به Flutter
+    window.onload = function() {
+      // اطمینان از اینکه reCAPTCHA آماده شد
+      setTimeout(() => {
+        window.parent.postMessage({ action: 'recaptcha-ready' }, '*');
+      }, 1000);
+    };
+
+    // رندر کپچا وقتی api بارگذاری شد
+    window.onload = renderCaptcha;
+  </script>
 </body>
 </html>
