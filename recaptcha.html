@@ -49,7 +49,7 @@
     // وقتی reCAPTCHA با موفقیت تأیید شد
     function onCaptchaSuccess(token) {
       captchaToken = token;
-      alert("reCAPTCHA حل شد! توکن: " + token.substring(0, 20));
+      // alert("reCAPTCHA حل شد! توکن: " + token.substring(0, 20));
     
       // بررسی وجود RecaptchaChannel در محیط Flutter WebView
       if (typeof RecaptchaChannel !== 'undefined') {
