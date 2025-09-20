@@ -30,13 +30,32 @@
     // تابع برای خواندن sitekey از query parameter
     function getUrlParameter(name) {
       const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(name) || urlParams.get('k'); // می‌تونی با ?sitekey=... یا ?k=... بفرستی
+      return urlParams.get(name) || urlParams.get('k');
     }
 
-    const siteKey = getUrlParameter('sitekey') || '6Lf5m1MrAAAAAGCPtMqKrKJDyvWZPn93XSSk_ylx'; // پیش‌فرض اختیاری
+    const siteKey = getUrlParameter('sitekey') || '6Lf5m1MrAAAAAGCPtMqKrKJDyvWZPn93XSSk_ylx';
 
-    // متغیر برای نگه‌داری توکن
     let captchaToken = null;
+
+    // وقتی reCAPTCHA با موفقیت تأیید شد
+    function onCaptchaSuccess(token) {
+      captchaToken = token;
+      console.log('✅ reCAPTCHA solved. Token:', token);
+
+      // ✅ همیشه به parent ارسال کن — چه در WebView باشه، چه در Web
+      window.parent.postMessage(JSON.stringify({
+        action: 'recaptcha-success',
+        token: token
+      }), '*');
+
+      // ✅ اگر در WebView باشه و RecaptchaChannel وجود داشت — اون رو هم صدا بزن (برای پشتیبانی قدیمی)
+      if (typeof RecaptchaChannel !== 'undefined' && RecaptchaChannel.postMessage) {
+        RecaptchaChannel.postMessage(JSON.stringify({
+          action: 'recaptcha-success',
+          token: token
+        }));
+      }
+    }
 
     // تنظیم reCAPTCHA
     function renderCaptcha() {
@@ -46,65 +65,44 @@
       });
     }
 
-    // وقتی reCAPTCHA با موفقیت تأیید شد
-    function onCaptchaSuccess(token) {
-      captchaToken = token;
-      // alert("reCAPTCHA حل شد! توکن: " + token.substring(0, 20));
-    
-      // بررسی وجود RecaptchaChannel در محیط Flutter WebView
-      if (typeof RecaptchaChannel !== 'undefined') {
-        RecaptchaChannel.postMessage(JSON.stringify({
-          action: 'recaptcha-success',
-          token: token
-        }));
-      } else {
-        // برای تست در مرورگر (اختیاری)
-        console.log('Token (در مرورگر):', token);
-      }
-    }
-
-    // اگر کاربر کپچا رو ریست کنه
-    function onCaptchaExpired() {
-      window.parent.postMessage({
-        action: 'recaptcha-expired'
-      }, '*');
-    }
-
-    // ارسال توکن به Flutter در صورت درخواست (مثلاً وقتی کنترلر چک می‌کنه)
+    // ارسال توکن به Flutter در صورت درخواست
     function sendToken() {
       if (captchaToken) {
-        window.parent.postMessage({
+        window.parent.postMessage(JSON.stringify({
           action: 'recaptcha-token',
           token: captchaToken
-        }, '*');
+        }), '*');
       } else {
-        window.parent.postMessage({
+        window.parent.postMessage(JSON.stringify({
           action: 'recaptcha-empty'
-        }, '*');
+        }), '*');
       }
     }
 
     // پذیرش پیام از Flutter
     window.addEventListener('message', function(event) {
-      // می‌تونی بر اساس event.origin امنیت رو افزایش بدی
-      if (event.data && event.data.action === 'get-token') {
-        sendToken();
-      } else if (event.data && event.data.action === 'reset') {
-        grecaptcha.reset();
-        captchaToken = null;
+      if (event.data && typeof event.data === 'string') {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.action === 'get-token') {
+            sendToken();
+          } else if (data.action === 'reset') {
+            grecaptcha.reset();
+            captchaToken = null;
+          }
+        } catch (e) {
+          console.warn('Invalid JSON received:', event.data);
+        }
       }
     });
 
-    // ارسال پیام آماده‌بودن به Flutter
-    window.onload = function() {
-      // اطمینان از اینکه reCAPTCHA آماده شد
+    // ارسال پیام آماده‌بودن
+    window.addEventListener('load', function() {
       setTimeout(() => {
-        window.parent.postMessage({ action: 'recaptcha-ready' }, '*');
-      }, 1000);
-    };
-
-    // رندر کپچا وقتی api بارگذاری شد
-    window.onload = renderCaptcha;
+        window.parent.postMessage(JSON.stringify({ action: 'recaptcha-ready' }), '*');
+      }, 500);
+      renderCaptcha();
+    });
   </script>
 </body>
 </html>
